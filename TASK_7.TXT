@@ -1,0 +1,107 @@
+# TASK 7 – MEDALLION LAYER MAPPING AND DATA CONTRACT
+
+## 7(a) Medallion Layer Mapping
+
+### Bronze Layer
+
+| Table | Layer | Reason |
+|---|---|---|
+| `BRONZE_AIRPORTS` | Bronze | Raw airport data received from the source system. |
+| `BRONZE_AIRCRAFT` | Bronze | Raw aircraft data received from the source system. |
+| `BRONZE_PASSENGERS` | Bronze | Raw passenger data received from the source system. |
+| `BRONZE_FLIGHTS` | Bronze | Raw flight data received from the source system. |
+| `BRONZE_BOOKINGS` | Bronze | Raw booking feed received from the source system and used as the source for ticket sales processing. |
+
+### Silver Layer
+
+| Table | Layer | Reason |
+|---|---|---|
+| `STG_PASSENGER_UPDATES` | Silver | Staging data containing passenger updates before applying the SCD Type 2 transformation. |
+| `STG_PASSENGERS_UPD` | Silver | Transformed staging data where the passenger's home airport is resolved to the airport surrogate key. |
+| `DIM_PASSENGER` | Silver | Structured passenger data created from the bronze passenger source. |
+| `DIM_AIRCRAFT` | Silver | Structured aircraft dimension created from the bronze aircraft source. |
+| `DIM_AIRPORTS` | Silver | Structured airport dimension created from the bronze airport source. |
+| `DIM_FLIGHTS` | Silver | Structured flight dimension created from the bronze flight source. |
+| `DIM_COUNTRY` | Silver | Normalized country-level geography created from airport data. |
+| `DIM_CITY` | Silver | Normalized city-level geography linked to the country dimension. |
+
+### Gold Layer
+
+| Table | Layer | Reason |
+|---|---|---|
+| `DIM_DATE` | Gold | Business-friendly date dimension used for analytical reporting. |
+| `FACTTICKETSALES` | Gold | Central analytical fact table containing ticket sales measures and keys to the dimensions. |
+| `DIM_PASSENGER_SCD_TYPE2_UP` | Gold | Historical passenger dimension that preserves previous versions of passenger attributes for analysis. |
+
+---
+
+# 7(b) Data Contract – `BRONZE_BOOKINGS`
+
+## 1. Purpose
+
+`BRONZE_BOOKINGS` is the raw booking feed used by the VayuAir data pipeline.
+
+It contains booking-level information linking a passenger to a flight, along with booking/travel dates, fare information, booking status and miles earned.
+
+## 2. Grain
+
+**One row represents one passenger's booking along with the associated flight.**
+
+## 3. Schema
+
+The agreed `BRONZE_BOOKINGS` columns are:
+
+| Column | Description | Required |
+|---|---|---|
+| `BOOKING_ID` | Unique identifier for the booking. | Yes |
+| `PASSENGER_ID` | Identifier of the passenger associated with the booking. | Yes |
+| `FLIGHT_ID` | Identifier of the flight associated with the booking. | Yes |
+| `BOOKING_DATE` | Date on which the booking was made. | Yes |
+| `TRAVEL_DATE` | Date associated with the passenger's travel. | Yes |
+| `FARE_CLASS` | Fare class selected for the booking. | Yes |
+| `FARE_AMOUNT` | Fare amount for the booking. | Yes |
+| `TAX_AMOUNT` | Tax amount associated with the booking. | Yes |
+| `BOOKING_STATUS` | Current status of the booking. | Yes |
+| `MILES_EARNED` | Miles earned from the booking. | Yes |
+
+**Data types:** The contract must use the exact data types defined in the existing `BRONZE_BOOKINGS` table. No type or length is changed as part of this contract.
+
+## 4. Allowed Values
+
+### `FARE_CLASS`
+
+The feed must contain only the fare-class values defined by the source system for this assignment.
+
+### `BOOKING_STATUS`
+
+The feed must contain only the booking-status values defined by the source system for this assignment.
+
+Any new value must be agreed with the Data Engineering Team before being introduced because downstream transformations and reporting depend on these fields.
+
+## 5. Freshness / Delivery SLA
+
+`BRONZE_BOOKINGS` should be delivered **daily by 02:00 AM IST**.
+
+The previous day's booking data must be available in the bronze layer by the agreed delivery time.
+
+## 6. Owner
+
+**Data Engineering Team – VayuAir**
+
+The Data Engineering Team is responsible for the ingestion pipeline, data quality and delivery of the `BRONZE_BOOKINGS` feed.
+
+## 7. Breaking Change
+
+**Example:** Removing `FARE_AMOUNT` from `BRONZE_BOOKINGS`.
+
+This is a breaking change because `FACTTICKETSALES` uses `FARE_AMOUNT` as a sales measure. Removing the column would cause the downstream fact-loading process and analytical queries to fail.
+
+## 8. Non-Breaking Change
+
+**Example:** Adding a new nullable column to `BRONZE_BOOKINGS` while keeping all existing columns, names and data types unchanged.
+
+Existing downstream processes can continue using the columns they already depend on, so the change does not break the current pipeline.
+
+## Contract Summary
+
+The `BRONZE_BOOKINGS` feed must maintain its defined grain, existing schema, valid values and delivery SLA. Changes that affect existing columns or their meaning must be treated as breaking changes and communicated to the Data Engineering Team before implementation.
